@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: museos-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/museos}
+    username: ${DB_USER:museos}
+    password: ${DB_PASSWORD:museos}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+server:
+  port: 8080
