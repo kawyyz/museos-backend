@@ -1,0 +1,17 @@
+# Compilación de Maven
+target/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# Variables de entorno y secretos
+.env
+*.pem
+
+# Logs
+*.log
