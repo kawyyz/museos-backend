@@ -39,7 +39,7 @@ public class AuthService {
         u.setPassword(encoder.encode(r.password()));
         u.setTelefono(r.telefono());
         u.setCiudad(r.ciudad());
-        u.setRol(Rol.CLIENTE); // el rol nunca lo decide quien se registra
+        u.setRol(Rol.CLIENTE);
         return respuesta(repo.save(u));
     }
 
@@ -62,7 +62,6 @@ public class AuthService {
         if (!"refresh".equals(claims.get("tipo", String.class))) {
             throw new CredencialesInvalidasException("El token entregado no es un refresh token");
         }
-        // Se vuelve a leer al usuario: así se respeta su rol actual y se rechaza si fue eliminado
         Usuario u = repo.findByCorreoIgnoreCase(claims.getSubject())
                 .orElseThrow(() -> new CredencialesInvalidasException("Refresh token inválido o vencido"));
         return respuesta(u);
