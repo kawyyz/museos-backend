@@ -2,6 +2,7 @@ package com.museogestion.backend.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -25,6 +26,17 @@ public class ManejadorErrores {
     @ExceptionHandler(CredencialesInvalidasException.class)
     public ResponseEntity<Map<String, String>> credenciales(CredencialesInvalidasException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ReglaNegocioException.class)
+    public ResponseEntity<Map<String, String>> reglaNegocio(ReglaNegocioException ex) {
+        return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, String>> cuerpoInvalido(HttpMessageNotReadableException ex) {
+        return ResponseEntity.badRequest().body(Map.of(
+                "error", "El cuerpo de la petición no es válido. Revisa el JSON y que las fechas usen el formato AAAA-MM-DD"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
