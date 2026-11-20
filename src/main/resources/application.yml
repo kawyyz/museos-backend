@@ -12,6 +12,19 @@ spring:
 
 server:
   port: 8080
+  shutdown: graceful
+  # Detrás de nginx: respeta los encabezados X-Forwarded-* (útil para que Swagger use la URL correcta)
+  forward-headers-strategy: framework
+
+# Solo se expone el estado de salud (/actuator/health), sin detalles internos
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
 
 app:
   jwt:
