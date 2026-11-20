@@ -1,0 +1,29 @@
+# Envía los logs de cada contenedor a Amazon CloudWatch Logs.
+# Requiere que la instancia EC2 tenga un rol de IAM con permiso para escribir en CloudWatch Logs.
+# Se activa agregando esta línea al archivo .env del servidor:
+#   COMPOSE_FILE=docker-compose.prod.yml:docker-compose.logs.yml
+services:
+  db:
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:-us-east-1}
+        awslogs-group: museos
+        awslogs-stream: db
+        awslogs-create-group: "true"
+  backend:
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:-us-east-1}
+        awslogs-group: museos
+        awslogs-stream: backend
+        awslogs-create-group: "true"
+  web:
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:-us-east-1}
+        awslogs-group: museos
+        awslogs-stream: web
+        awslogs-create-group: "true"

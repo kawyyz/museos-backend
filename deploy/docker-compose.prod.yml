@@ -1,0 +1,46 @@
+# Despliegue en una instancia EC2: base de datos + backend + frontend (nginx).
+# Solo el puerto 80 (nginx) se publica; la base de datos y el backend quedan en la red interna de Docker.
+services:
+  db:
+    image: postgres:16
+    container_name: museos-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-museos}
+      POSTGRES_USER: ${POSTGRES_USER:-museos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en el archivo .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ghcr.io/kawyyz/museos-backend:latest
+    container_name: museos-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-museos}
+      DB_USER: ${POSTGRES_USER:-museos}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en el archivo .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Define ADMIN_PASSWORD en el archivo .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+
+  web:
+    image: ghcr.io/kawyyz/museos-web:latest
+    container_name: museos-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+
+volumes:
+  pgdata:
