@@ -1,0 +1,20 @@
+name: Ping de disponibilidad
+
+# Consulta el estado de salud del sistema desplegado cada 15 minutos.
+# Si la aplicación no responde, el flujo falla y GitHub lo muestra en rojo.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar /actuator/health
+        env:
+          HOST: ${{ secrets.EC2_HOST }}
+        run: |
+          curl -fsS --max-time 10 "http://$HOST/actuator/health" | tee salud.json
+          echo
+          grep -q '"status":"UP"' salud.json
