@@ -30,7 +30,7 @@ public class JwtService {
                     + "Los tokens dejarán de valer al reiniciar la aplicación.");
             this.key = Jwts.SIG.HS256.key().build();
         } else {
-            this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+            this.key = Keys.hmacShaKeyFor(Decoders.BASE64URL.decode(secret));
         }
         this.accessMs = accessMinutes * 60 * 1000;
         this.refreshMs = refreshDays * 24 * 60 * 60 * 1000;
