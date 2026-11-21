@@ -1,3 +1,4 @@
+
 name: CI/CD backend
 
 on:
@@ -7,87 +8,64 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: despliegue-backend
   cancel-in-progress: false
 
-env:
-  IMAGEN: ghcr.io/kawyyz/museos-backend
-
 jobs:
   compilar:
     name: Compilar y probar
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
           cache: maven
+
       - name: Compilar y ejecutar pruebas
         run: mvn -B verify
 
-  imagen:
-    name: Construir y publicar la imagen Docker
-    needs: compilar
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ env.IMAGEN }}:latest
-            ${{ env.IMAGEN }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   desplegar:
-    name: Desplegar en AWS (EC2)
-    needs: imagen
-    runs-on: ubuntu-latest
-    env:
-      HOST: ${{ secrets.EC2_HOST }}
-      USUARIO: ${{ secrets.EC2_USER }}
-      CLAVE: ${{ secrets.EC2_SSH_KEY }}
+    name: Construir y desplegar en Ubuntu Server
+    needs: compilar
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Linux, X64, museos-backend]
+
     steps:
       - uses: actions/checkout@v4
-      - name: Preparar conexión SSH
+
+      - name: Construir imagen Docker
+        run: docker build -t museos-backend:latest .
+
+
+      - name: Actualizar backend
+        working-directory: /srv/servicios/museos
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$CLAVE" > ~/.ssh/clave.pem
-          chmod 600 ~/.ssh/clave.pem
-          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
-      - name: Copiar archivos de despliegue
-        run: |
-          scp -i ~/.ssh/clave.pem deploy/docker-compose.prod.yml deploy/docker-compose.logs.yml "$USUARIO@$HOST:/opt/museos/"
-      - name: Actualizar contenedores y verificar el estado
-        run: |
-          ssh -i ~/.ssh/clave.pem "$USUARIO@$HOST" 'bash -s' <<'REMOTO'
           set -e
-          cd /opt/museos
-          docker compose pull db backend
-          docker compose up -d db backend
-          for i in $(seq 1 30); do
-            estado=$(docker inspect --format '{{.State.Health.Status}}' museos-backend)
-            if [ "$estado" = "healthy" ]; then
-              echo "Backend saludable"
-              docker image prune -f
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "El backend no quedó saludable"
-          docker logs --tail 50 museos-backend
-          exit 1
-          REMOTO
+
+          flock /tmp/museos-deploy.lock -c '
+            docker compose up -d backend
+
+            echo "Esperando que el backend esté saludable..."
+
+            for i in $(seq 1 30); do
+              estado=$(docker inspect --format "{{.State.Health.Status}}" museos-backend)
+
+              if [ "$estado" = "healthy" ]; then
+                echo "Backend saludable"
+                docker compose ps
+                exit 0
+              fi
+
+              sleep 5
+            done
+
+            echo "El backend no quedó saludable"
+            docker logs --tail 50 museos-backend
+            exit 1
+          '
