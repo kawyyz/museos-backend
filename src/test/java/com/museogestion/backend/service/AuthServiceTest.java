@@ -16,7 +16,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
+import com.museogestion.backend.dto.AuthDto.RefreshRequest;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import org.mockito.Mockito;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -137,5 +140,102 @@ class AuthServiceTest {
                 CredencialesInvalidasException.class,
                 () -> authService.login(request)
         );
+    }
+
+    @Test
+    void iniciarSesionConCorreoInexistenteLanzaExcepcion() {
+        LoginRequest request = new LoginRequest(
+                "inexistente@correo.com",
+                "password123"
+        );
+
+        when(repo.findByCorreoIgnoreCase("inexistente@correo.com"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                CredencialesInvalidasException.class,
+                () -> authService.login(request)
+        );
+
+        verify(encoder, never()).matches(any(), any());
+    }
+
+    @Test
+    void refrescarConTokenInvalidoLanzaExcepcion() {
+        RefreshRequest request = new RefreshRequest("token-invalido");
+
+        when(jwt.leer("token-invalido"))
+                .thenThrow(new JwtException("Token inválido"));
+
+        assertThrows(
+                CredencialesInvalidasException.class,
+                () -> authService.refrescar(request)
+        );
+    }
+
+    @Test
+    void refrescarConTokenQueNoEsRefreshLanzaExcepcion() {
+        RefreshRequest request = new RefreshRequest("access-token");
+
+        Claims claims = Mockito.mock(Claims.class);
+
+        when(jwt.leer("access-token")).thenReturn(claims);
+        when(claims.get("tipo", String.class)).thenReturn("access");
+
+        assertThrows(
+                CredencialesInvalidasException.class,
+                () -> authService.refrescar(request)
+        );
+    }
+
+    @Test
+    void refrescarConUsuarioInexistenteLanzaExcepcion() {
+        RefreshRequest request = new RefreshRequest("refresh-token");
+
+        Claims claims = Mockito.mock(Claims.class);
+
+        when(jwt.leer("refresh-token")).thenReturn(claims);
+        when(claims.get("tipo", String.class)).thenReturn("refresh");
+        when(claims.getSubject()).thenReturn("inexistente@correo.com");
+
+        when(repo.findByCorreoIgnoreCase("inexistente@correo.com"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                CredencialesInvalidasException.class,
+                () -> authService.refrescar(request)
+        );
+    }
+
+    @Test
+    void refrescarTokenCorrectamente() {
+        RefreshRequest request = new RefreshRequest("refresh-token");
+
+        Usuario usuario = new Usuario();
+        usuario.setNombre("Juan Perez");
+        usuario.setCorreo("juan@correo.com");
+        usuario.setPassword("hash123");
+        usuario.setRol(Rol.CLIENTE);
+
+        Claims claims = Mockito.mock(Claims.class);
+
+        when(jwt.leer("refresh-token")).thenReturn(claims);
+        when(claims.get("tipo", String.class)).thenReturn("refresh");
+        when(claims.getSubject()).thenReturn("juan@correo.com");
+
+        when(repo.findByCorreoIgnoreCase("juan@correo.com"))
+                .thenReturn(Optional.of(usuario));
+
+        when(jwt.generarAccessToken(usuario)).thenReturn("nuevo-access-token");
+        when(jwt.generarRefreshToken(usuario)).thenReturn("nuevo-refresh-token");
+        when(jwt.getAccessSegundos()).thenReturn(900L);
+
+        AuthResponse respuesta = authService.refrescar(request);
+
+        assertEquals("nuevo-access-token", respuesta.accessToken());
+        assertEquals("nuevo-refresh-token", respuesta.refreshToken());
+        assertEquals("Juan Perez", respuesta.nombre());
+        assertEquals("juan@correo.com", respuesta.correo());
+        assertEquals("CLIENTE", respuesta.rol());
     }
 }
