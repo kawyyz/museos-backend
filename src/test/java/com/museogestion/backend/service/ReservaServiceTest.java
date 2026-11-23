@@ -17,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.ZoneId;
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -157,7 +158,7 @@ class ReservaServiceTest {
         Usuario usuario = crearUsuario();
         Museo museo = crearMuseo();
 
-        LocalDate fecha = LocalDate.now().minusDays(1);
+        LocalDate fecha = LocalDate.now(ZoneId.of("America/Santiago")).minusDays(1);
 
         ReservaRequest request = new ReservaRequest(
                 10L,
